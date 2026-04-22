@@ -15,7 +15,7 @@ if str(ROOT_DIR) not in sys.path:
 from credit_app.prediction_service import PredictionServiceError, backend_label, predict_one
 
 st.set_page_config(page_title="Analyse en Masse", page_icon="📂", layout="wide")
-st.title("📂 Analyse en Masse")
+st.title("Analyse en Masse")
 st.caption(f"Source de prediction active : {backend_label()}")
 st.markdown("Importez un fichier CSV pour analyser plusieurs dossiers.")
 
