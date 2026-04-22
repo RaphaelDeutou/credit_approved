@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 import numpy as np
 
 st.set_page_config(page_title="Dashboard", page_icon="📊", layout="wide")
-st.title("📊 Dashboard — Statistiques Globales")
+st.title("Dashboard — Statistiques Globales")
 
 # Simulation de données (remplacer par vos vraies données)
 np.random.seed(42)
