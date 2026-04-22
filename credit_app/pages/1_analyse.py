@@ -16,7 +16,7 @@ from credit_app.prediction_service import PredictionServiceError, backend_label,
 
 st.set_page_config(page_title="Analyse Individuelle", page_icon="📋", layout="wide")
 
-st.title("📋 Analyse d'un Dossier de Credit")
+st.title("Analyse d'un Dossier de Credit")
 st.caption(f"Source de prediction active : {backend_label()}")
 st.markdown("Remplissez le formulaire ci-dessous pour obtenir une decision.")
 st.markdown("---")
