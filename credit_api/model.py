@@ -1,19 +1,15 @@
-# ============================================================
-# model.py - Chargement et preparation du modele
+﻿# ============================================================
+# model.py - Chargement et préparation du modèle
 # ============================================================
 
 from pathlib import Path
+from typing import Any
 
 import joblib
 import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Chargement du modele et du scaler
-modele = joblib.load(BASE_DIR / "meilleur_modele_credit.pkl")
-scaler = joblib.load(BASE_DIR / "scaler_credit.pkl")
-
-# Variables numeriques utilisees pour le scaler pendant l'entrainement
 VARS_NUMERIQUES = [
     "duree_mois",
     "montant_credit",
@@ -24,7 +20,6 @@ VARS_NUMERIQUES = [
     "nb_personnes_charge",
 ]
 
-# Variables categorielles encodees en one-hot dans le notebook
 VARS_CATEGORIELLES = [
     "statut_compte",
     "historique_credit",
@@ -42,19 +37,103 @@ VARS_CATEGORIELLES = [
     "tranche_age",
 ]
 
-# Seuils derives des moyennes du jeu d'entrainement
 SEUIL_MONTANT_ELEVE = 3969
 SEUIL_DUREE_LONGUE = 20
-
-# Seuil optimal retenu dans le notebook final
 SEUIL_OPTIMAL = 0.25
+
+modele: Any = None
+scaler: Any = None
+MODEL_LOAD_ERROR: str | None = None
+
+
+def _charger_modele() -> None:
+    global modele, scaler, MODEL_LOAD_ERROR
+    if modele is not None or scaler is not None:
+        return
+
+    try:
+        modele = joblib.load(BASE_DIR / "meilleur_modele_credit.pkl")
+        scaler = joblib.load(BASE_DIR / "scaler_credit.pkl")
+        MODEL_LOAD_ERROR = None
+    except Exception as exc:  # pragma: no cover - protection contre un modèle indisponible
+        modele = None
+        scaler = None
+        MODEL_LOAD_ERROR = str(exc)
+
+
+_charger_modele()
+
+
+def model_status_label() -> str:
+    if modele is not None and scaler is not None:
+        return "modèle prêt"
+    return "fallback heuristique"
+
+
+def _score_heuristique(dossier: dict) -> float:
+    score = 0.50
+
+    if dossier.get("age", 0) >= 35:
+        score += 0.05
+    if dossier.get("age", 0) <= 24:
+        score -= 0.10
+
+    if dossier.get("montant_credit", 0) <= 5000:
+        score += 0.05
+    if dossier.get("montant_credit", 0) >= 12000:
+        score -= 0.10
+
+    if dossier.get("duree_mois", 0) <= 24:
+        score += 0.05
+    if dossier.get("duree_mois", 0) >= 48:
+        score -= 0.08
+
+    if dossier.get("taux_versement", 0) <= 2:
+        score += 0.05
+    if dossier.get("taux_versement", 0) >= 3:
+        score -= 0.07
+
+    if dossier.get("nb_credits", 0) <= 1:
+        score += 0.04
+    if dossier.get("nb_credits", 0) >= 3:
+        score -= 0.06
+
+    if dossier.get("nb_personnes_charge", 0) <= 1:
+        score += 0.03
+
+    if dossier.get("residence_depuis", 0) >= 3:
+        score += 0.04
+
+    if dossier.get("statut_compte") in {"A12", "A13", "A14"}:
+        score += 0.05
+    if dossier.get("historique_credit") in {"A30", "A31", "A32"}:
+        score += 0.05
+    if dossier.get("epargne") in {"A63", "A64"}:
+        score += 0.04
+    if dossier.get("emploi_depuis") in {"A74", "A75"}:
+        score += 0.03
+    if dossier.get("statut_sexe") in {"A92", "A95"}:
+        score += 0.02
+    if dossier.get("propriete") in {"A121", "A122"}:
+        score += 0.03
+
+    return float(max(0.02, min(0.98, score)))
+
+
+def _niveau_risque(proba: float) -> str:
+    if proba >= 0.75:
+        return "Faible"
+    if proba >= 0.50:
+        return "Modéré"
+    if proba >= 0.30:
+        return "Élevé"
+    return "Très élevé"
 
 
 def preparer_donnees(dossier: dict) -> pd.DataFrame:
-    """Transforme les donnees brutes en features compatibles avec le modele."""
+    """Transforme les données brutes en features compatibles avec le modèle."""
     df = pd.DataFrame([dossier])
 
-    # Feature engineering reproduit depuis le notebook d'entrainement.
     df["mensualite_estimee"] = df["montant_credit"] / df["duree_mois"]
     df["ratio_montant_age"] = df["montant_credit"] / df["age"]
     df["tranche_age"] = pd.cut(
@@ -72,37 +151,40 @@ def preparer_donnees(dossier: dict) -> pd.DataFrame:
 
     df = pd.get_dummies(df, columns=VARS_CATEGORIELLES, drop_first=True)
 
-    # Le scaler a ete entraine uniquement sur les variables numeriques d'origine.
-    df[VARS_NUMERIQUES] = scaler.transform(df[VARS_NUMERIQUES])
+    if scaler is not None:
+        df[VARS_NUMERIQUES] = scaler.transform(df[VARS_NUMERIQUES])
+    else:
+        df[VARS_NUMERIQUES] = df[VARS_NUMERIQUES].astype(float)
 
-    # Alignement strict avec les colonnes attendues par le modele sauvegarde.
-    features_modele = getattr(modele, "feature_names_in_", df.columns)
-    return df.reindex(columns=features_modele, fill_value=0)
+    if modele is not None:
+        features_modele = getattr(modele, "feature_names_in_", df.columns)
+        return df.reindex(columns=features_modele, fill_value=0)
+    return df
 
 
 def predire(dossier: dict) -> dict:
-    """Effectue la prediction et retourne une decision metier interpretable."""
-    X = preparer_donnees(dossier)
+    """Effectue la prédiction et retourne une décision métier interprétable."""
+    if modele is None:
+        proba = _score_heuristique(dossier)
+        decision = "ACCORD" if proba >= SEUIL_OPTIMAL else "REFUS"
+        return {
+            "decision": decision,
+            "probabilite_accord": round(proba, 4),
+            "niveau_risque": _niveau_risque(proba),
+            "message": "Prédiction par heuristique de secours - le modèle principal n'est pas disponible.",
+        }
 
+    X = preparer_donnees(dossier)
     proba = float(modele.predict_proba(X)[0][1])
     decision = "ACCORD" if proba >= SEUIL_OPTIMAL else "REFUS"
-
-    if proba >= 0.75:
-        niveau_risque = "Faible"
-    elif proba >= 0.50:
-        niveau_risque = "Mod\u00e9r\u00e9"
-    elif proba >= 0.30:
-        niveau_risque = "\u00c9lev\u00e9"
-    else:
-        niveau_risque = "Tr\u00e8s \u00e9lev\u00e9"
 
     return {
         "decision": decision,
         "probabilite_accord": round(proba, 4),
-        "niveau_risque": niveau_risque,
+        "niveau_risque": _niveau_risque(proba),
         "message": (
-            "Cr\u00e9dit accord\u00e9 - profil favorable."
+            "Crédit accordé - profil favorable."
             if decision == "ACCORD"
-            else "Cr\u00e9dit refus\u00e9 - risque trop \u00e9lev\u00e9."
+            else "Crédit refusé - risque trop élevé."
         ),
     }

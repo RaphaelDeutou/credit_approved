@@ -16,9 +16,19 @@ from credit_app.prediction_service import PredictionServiceError, backend_label,
 
 st.set_page_config(page_title="Analyse Individuelle", page_icon="📋", layout="wide")
 
+<<<<<<< HEAD
 st.title("Analyse d'un Dossier de Credit")
 st.caption(f"Source de prediction active : {backend_label()}")
 st.markdown("Remplissez le formulaire ci-dessous pour obtenir une decision.")
+=======
+st.title("Analyse d'un Dossier de Crédit")
+st.caption(f"Source de prédiction active : {backend_label()}")
+st.markdown("Remplissez le formulaire ci-dessous pour obtenir une décision rapide et lisible.")
+
+with st.expander("💡 Conseils de saisie", expanded=False):
+    st.write("- Privilégiez des valeurs réalistes pour les montants et durées.\n- Un profil stable, avec des antécédents rassurants, améliore généralement le score.\n- Si le modèle principal est indisponible, l’application bascule automatiquement sur une logique de secours.")
+
+>>>>>>> e252f9b (Amelioration UI Streamlit et robustesse prediction)
 st.markdown("---")
 
 
@@ -263,19 +273,16 @@ if soumettre:
             resultat = predict_one(dossier)
 
             st.markdown("---")
-            st.subheader("Resultat de l'analyse")
+            st.subheader("Résultat de l'analyse")
 
             col_res1, col_res2, col_res3 = st.columns(3)
-
             with col_res1:
                 if resultat["decision"] == "ACCORD":
-                    st.success(f"Accord : {resultat['decision']}")
+                    st.success(f"✅ Décision : {resultat['decision']}")
                 else:
-                    st.error(f"Decision : {resultat['decision']}")
-
+                    st.error(f"❌ Décision : {resultat['decision']}")
             with col_res2:
-                st.metric("Probabilite d'accord", f"{resultat['probabilite_accord'] * 100:.1f}%")
-
+                st.metric("Probabilité d'accord", f"{resultat['probabilite_accord'] * 100:.1f}%")
             with col_res3:
                 couleurs = {
                     "Faible": "🟢",
@@ -290,7 +297,7 @@ if soumettre:
                 go.Indicator(
                     mode="gauge+number",
                     value=resultat["probabilite_accord"] * 100,
-                    title={"text": "Score de credit (%)"},
+                    title={"text": "Score de crédit (%)"},
                     gauge={
                         "axis": {"range": [0, 100]},
                         "bar": {"color": "#2ecc71" if resultat["decision"] == "ACCORD" else "#e74c3c"},
@@ -308,8 +315,9 @@ if soumettre:
                     },
                 )
             )
-            fig.update_layout(height=300)
+            fig.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
             st.plotly_chart(fig, use_container_width=True)
+
             st.info(resultat["message"])
 
         except PredictionServiceError as exc:

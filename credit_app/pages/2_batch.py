@@ -16,8 +16,16 @@ from credit_app.prediction_service import PredictionServiceError, backend_label,
 
 st.set_page_config(page_title="Analyse en Masse", page_icon="📂", layout="wide")
 st.title("Analyse en Masse")
+<<<<<<< HEAD
 st.caption(f"Source de prediction active : {backend_label()}")
 st.markdown("Importez un fichier CSV pour analyser plusieurs dossiers.")
+=======
+st.caption(f"Source de prédiction active : {backend_label()}")
+st.markdown("Importez un fichier CSV pour analyser plusieurs dossiers et obtenir un résumé clair des résultats.")
+
+with st.expander("Format attendu", expanded=False):
+    st.write("Le fichier doit contenir les colonnes du dossier de crédit : âge, montant, durée, taux de versement, statut de compte, historique, objet, etc.")
+>>>>>>> e252f9b (Amelioration UI Streamlit et robustesse prediction)
 
 uploaded = st.file_uploader("Importer un fichier CSV", type=["csv"])
 
@@ -52,7 +60,7 @@ if uploaded:
         df_res["message"] = [r["message"] for r in resultats]
 
         st.markdown("---")
-        st.subheader("Resultats")
+        st.subheader("Résultats")
 
         col1, col2, col3 = st.columns(3)
         accords = (df_res["decision"] == "ACCORD").sum()
@@ -67,11 +75,11 @@ if uploaded:
             use_container_width=True,
         )
 
-        csv = df_res.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="Telecharger les resultats",
-            data=csv,
+            label="Télécharger les résultats",
+            data=df_res.to_csv(index=False).encode("utf-8"),
             file_name="resultats_credit.csv",
             mime="text/csv",
             use_container_width=True,
         )
+

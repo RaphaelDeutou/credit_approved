@@ -10,7 +10,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from credit_api.model import predire
+from credit_api.model import model_status_label, predire
 
 
 class PredictionServiceError(Exception):
@@ -22,7 +22,9 @@ def _api_url() -> str:
 
 
 def backend_label() -> str:
-    return "API distante" if _api_url() else "modele local"
+    if _api_url():
+        return "API distante"
+    return f"modele local ({model_status_label()})"
 
 
 def predict_one(dossier: dict) -> dict:
